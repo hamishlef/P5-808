@@ -1,0 +1,220 @@
+import controlP5.*;
+ControlP5 gui;
+PFont f; 
+
+//class
+class StepButton {
+
+  int state;
+  int isPlaying;
+  float xpos, ypos, wsize, hsize;
+
+  StepButton (float tempxpos, float tempypos, float tempwsize, float temphsize, int tempisplaying) {
+    xpos = tempxpos;
+    ypos = tempypos;
+    wsize = tempwsize;
+    hsize = temphsize;
+    isPlaying = tempisplaying;
+  }
+
+  // display the steps/buttons with different colors for different states
+  void display() {
+    if (state == 0) {
+      noFill();
+      strokeWeight(4);
+      stroke(151, 154, 147);
+    } else if (state == 1) {
+      fill(226, 49, 37);
+      strokeWeight(4);
+    } else if (state == 2) {
+      fill(240, 125, 33);
+      strokeWeight(4);
+    } else if (state == 3) {
+      fill(225, 214, 29);
+      strokeWeight(4);
+    } else if (state == 4) {
+      fill(221, 230, 183);
+      strokeWeight(4);
+    }
+    rect(xpos, ypos, wsize, hsize);
+  }
+
+  int get_current_state() {
+    return state;
+  }
+
+  //blink the step/button according to the tempo
+  void blink() {
+    fill((int)map(sin(frameCount*0.011), -1, 1, 0, 255)); //rotates colour through black/white gradient
+    rect(xpos, ypos, wsize, hsize);
+  }
+
+  // check if the step/button was clicked and change the state 
+  void clickCheck(int _mouseX, int _mouseY) {
+    if (mouseX > xpos && mouseX < xpos + wsize && mouseY > ypos && mouseY < ypos+hsize) {
+      state++;
+    }
+    if (state > 4) { 
+      state = 0;
+    }
+  }
+}
+
+//main code
+StepButton[] steps;
+
+//variables
+int stepRows = 2; // number of rows on the sequencer
+int stepColumns = 8; // number of colums
+int numberOfSteps = stepRows * stepColumns; // total number of steps
+int stepSpacing = 30;
+float tempo = 190.0; //step sequencer tempo
+float lastMillis;
+int index = 0;
+int[] stepState = new int[numberOfSteps];
+Slider TempoSlider;
+
+//adding Minim library
+import ddf.minim.analysis.*;
+import ddf.minim.*;
+import ddf.minim.ugens.*;
+Minim       minim;
+AudioOutput out;
+AudioSample[] samples = new AudioSample[4] ;
+FFT         fft;
+
+void setup() {
+  size(1000, 340);
+  //introducing font for later use
+  f = createFont("Arial", 16, true);
+
+  //Setup Audio
+  minim = new Minim(this);
+  for (int i = 0; i < 4; i++) {
+    String path = "sample" + str(i) + ".mp3";
+    samples[i] = minim.loadSample(path, 512);   
+    fft = new FFT( samples[i].bufferSize(), samples[i].sampleRate() );
+  }
+
+  //setting up Gui
+  gui = new ControlP5(this);
+  setup_gui();
+
+  //determine the step width/height
+  float stepSize = ((width - (stepColumns * stepSpacing)) / stepColumns);
+
+  //setup the steps/buttons
+  steps = new StepButton[numberOfSteps];
+  int index = 0;
+  for (int y = 0; y < stepRows; y++) {
+    for (int x = 0; x < stepColumns; x++) {
+      steps[index++] = new StepButton((x * stepSize) + stepSpacing*7, (y * stepSize) + stepSpacing*3, stepSize, stepSize, 0);
+    }
+  }
+}
+
+void update() {
+}
+
+void draw() {
+  update();
+  background(55, 56, 48);
+
+  textFont(f, 30);// Specify font to be used
+  fill(240, 125, 33);// Specify font colour 
+  text("Ryhthm Composer P5-808", 350, 35);//Adding text
+
+  fft.forward( samples[0].mix );
+  stroke(226, 49, 37);
+  for (int i = 0; i < fft.specSize(); i++)
+  {
+    // creating spectrum based on each of the samples
+    line( i, height, i, height - fft.getBand(i)*8 );
+  }
+
+  fft.forward( samples[1].mix );
+  stroke(240, 125, 33);
+  for (int i = 0; i < fft.specSize(); i++)
+  {
+
+    line( i, height, i, height - fft.getBand(i)*8 );
+  }
+  fft.forward( samples[2].mix );
+  stroke(225, 214, 29);
+  for (int i = 0; i < fft.specSize(); i++)
+  {
+
+    line( i, height, i, height - fft.getBand(i)*8 );
+  }
+  fft.forward( samples[3].mix );
+  stroke(221, 230, 183);
+  for (int i = 0; i < fft.specSize(); i++)
+  {
+
+    line( i, height, i, height - fft.getBand(i)*8 );
+  }
+
+  //display the steps
+  for (int i = 0; i < numberOfSteps; i++) {
+    steps[i].display();
+  }
+
+  //check which step should blink
+  if (millis() < lastMillis + tempo) {
+    steps[index].blink();
+  } else if (millis() >= lastMillis + tempo) {
+    index++;
+    lastMillis = millis();
+
+    for (int i = 0; i < numberOfSteps; i++) {
+      if (index == i) {
+        if (steps[i].get_current_state() == 1) {
+          samples[0].trigger();
+        } else if (steps[i].get_current_state() == 2) {
+          samples[1].trigger();
+        } else if (steps[i].get_current_state() == 3) {
+          samples[2].trigger();
+        } else if (steps[i].get_current_state() == 4) {
+          samples[3].trigger();
+        }
+      }
+    }
+  }
+  if (index > numberOfSteps - 1) {
+    index = 0;
+  }
+}
+
+//run through the steps to check which one was clicked
+void mouseClicked() {
+  for (int i=0; i < numberOfSteps; i++) {
+    steps[i].clickCheck(mouseX, mouseY);
+  }
+}
+//Adding tempo control through Gui
+void setup_gui() {
+
+  TempoSlider = gui.addSlider("Tempo")
+    .setPosition(25, 20)
+    .setRange(60.0, 400.0)
+    .setValue(tempo);
+
+
+  TempoSlider.addCallback(new CallbackListener() {
+    public void controlEvent(CallbackEvent theEvent) {
+      if (theEvent.getAction()==ControlP5.ACTION_BROADCAST) {
+        tempo = TempoSlider.getValue();
+      }
+    }
+  } 
+  );
+
+  TempoSlider.addCallback(new CallbackListener() {
+    public void controlEvent(CallbackEvent theEvent) {
+      if (theEvent.getAction()==ControlP5.ACTION_BROADCAST) {
+        tempo = TempoSlider.getValue();
+      }
+    }
+  } 
+  );
+}
