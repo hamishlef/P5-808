@@ -3,4 +3,4 @@ Step Sequencer + Spectral Audio Analyser
 
 To rotate through sounds click on the squares of the Step Sequencer.
 
-Download the audio samples provided or try it with your own
+Download the audio samples provided in data.zip or try it with your own
